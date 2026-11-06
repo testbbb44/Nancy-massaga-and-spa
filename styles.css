@@ -279,3 +279,17 @@ h1 em, h2 em { color: var(--clay); font-weight: 400; }
   .payment-panel { padding: 13px; }
   .contact-actions .button { flex: 1 1 120px; }
 }
+.success-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1000;
+  max-width: calc(100vw - 48px);
+  padding: 16px 22px;
+  border-radius: 10px;
+  background: #234c38;
+  color: #fff;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 18%);
+  font-size: 14px;
+}
+
